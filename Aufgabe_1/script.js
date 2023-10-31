@@ -91,11 +91,24 @@ const fragmentShaderSource = `#version 300 es
         return value;
     }
 
-    float circle(in vec2 _st, in float _radius){
-        vec2 dist = _st+vec2(.0, 2.8);
-        return 1.-smoothstep(_radius-(_radius*0.01),
-                             _radius+(_radius*0.01),
-                             dot(dist,dist)*4.0);
+    float randomPattern(vec2 st, float time) {
+        float scale = 100.0; // Skalierungsfaktor für die Mustergröße
+        float speed = 50.0; // Geschwindigkeit der Bewegung
+        vec2 p = st * scale;
+        float pattern = sin(p.x + p.y + time * speed) * 0.5 + 0.5;
+        return pattern;
+    }
+    
+    float circle(in vec2 _st, in float _radius) {
+        vec2 dist = _st + vec2(0.0, 2.8);
+
+        float insideCircle = 1.0 - smoothstep(_radius - (_radius * 0.01),
+                                            _radius + (_radius * 0.01),
+                                            dot(dist, dist) * 4.0);
+
+        float pattern = randomPattern(_st, u_time) * insideCircle;
+
+        return insideCircle * pattern;
     }
 
     void main() {
@@ -114,7 +127,7 @@ const fragmentShaderSource = `#version 300 es
         r.x = fbm( fragCoord + 1.0*q + vec2(1.7,9.2)+ 0.5*u_time );
         r.y = fbm( fragCoord + 1.0*q + vec2(8.3,2.8)+ 0.5*u_time);
 
-        vec3 color = circle(fragCoord, 20.0) * vec3(0.0, 0.0, 0.7);
+        vec3 color = circle(fragCoord, 20.0) * vec3(sin(u_time), cos(u_time), 0.5);
         
         color += fbm(fragCoord+r);
 
