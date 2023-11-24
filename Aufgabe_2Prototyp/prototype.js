@@ -220,9 +220,9 @@ const worldVAO = glance.createVAO(
     worldIBO,
     glance.buildAttributeMap(worldShader, worldABO, ["a_pos", "a_normal", "a_texCoord"])
 )
-const worldTextureAmbient = glance.loadTexture(gl, "img/white_bricks_ao.jpg")
-const worldTextureDiffuse = glance.loadTexture(gl, "img/white_bricks_diff.jpg")
-const worldTextureSpecular = glance.loadTexture(gl, "img/white_bricks_spec.jpg")
+const worldTextureAmbient = glance.loadTexture(gl, "img/plywood_ao.jpg")
+const worldTextureDiffuse = glance.loadTexture(gl, "img/plywood_diff.jpg")
+const worldTextureSpecular = glance.loadTexture(gl, "img/plywood_diff.jpg")
 
 
 
@@ -266,13 +266,14 @@ const worldCubeAxleVAO = glance.createVAO(
 
 
 // The world - Gear
-const worldGearIBO = glance.createIndexBuffer(gl, glance.createCylinderIndices(32, 64))
+const {attributes: gearAttr, indices: gearIdx} = await glance.loadObj("./obj/untitled.obj")
 
-const worldGearABO = glance.createAttributeBuffer(gl, "world-gear-abo", glance.createCylinderAttributes(0.2, 0.1, 32, 64),
-{
+const worldGearIBO = glance.createIndexBuffer(gl, gearIdx)
+
+const worldGearABO = glance.createAttributeBuffer(gl, "world-gear-abo", gearAttr, {
     a_pos: { size: 3, type: gl.FLOAT },
-    a_normal: { size: 3, type: gl.FLOAT },
     a_texCoord: { size: 2, type: gl.FLOAT },
+    a_normal: { size: 3, type: gl.FLOAT },
 })
 
 const worldGearVAO = glance.createVAO(
@@ -394,14 +395,17 @@ const worldCubeAxleLeftDrawCall = glance.createDrawCall(
 )
 
 
+
+//////////////////////// Gear Draw Calls ///////////////////////////////////
+
 const worldGearTableDrawCall = glance.createDrawCall(
     gl,
     worldShader,
     worldGearVAO,
     {
         // uniform update callbacks
-        u_modelMatrix: () => mat4.multiply(mat4.identity(), mat4.fromTranslation([1, -0.6, 1])),
-        u_normalMatrix: () => mat3.fromMat4(mat4.transpose(mat4.invert(mat4.multiply(mat4.identity(), mat4.fromTranslation([1, -0.6, 1])))))
+        u_modelMatrix: () => mat4.multiply(mat4.multiply(mat4.identity(), mat4.fromTranslation([1, -0.6, 1])), mat4.fromScaling([0.1, 0.1, 0.1])),
+        u_normalMatrix: () => mat3.fromMat4(mat4.transpose(mat4.invert(mat4.multiply(mat4.multiply(mat4.identity(), mat4.fromTranslation([1, -0.6, 1])), mat4.fromScaling([0.1, 0.1, 0.1])))))
     },
     [
         // texture bindings
@@ -417,8 +421,8 @@ const worldGearMouseDrawCall = glance.createDrawCall(
     worldGearVAO,
     {
         // uniform update callbacks
-        u_modelMatrix: () => mat4.multiply(mat4.identity(), mat4.fromTranslation([cursor[0], 0.8, 0])),
-        u_normalMatrix: () => mat3.fromMat4(mat4.transpose(mat4.invert(mat4.multiply(mat4.identity(), mat4.fromTranslation([1, 0.6, 1])))))
+        u_modelMatrix: () => mat4.multiply(mat4.multiply(mat4.identity(), mat4.fromTranslation([cursor[0], 0.8, 0])), mat4.fromScaling([0.1, 0.1, 0.1])),
+        u_normalMatrix: () => mat3.fromMat4(mat4.transpose(mat4.invert(mat4.multiply(mat4.multiply(mat4.identity(), mat4.fromTranslation([cursor[0], 0.8, 0])), mat4.fromScaling([0.1, 0.1, 0.1])))))
     },
     [
         // texture bindings
@@ -434,8 +438,8 @@ const worldGearCubeLeftDrawCall = glance.createDrawCall(
     worldGearVAO,
     {
         // uniform update callbacks
-        u_modelMatrix: (time) => mat4.multiply(mat4.multiply(mat4.identity(), mat4.fromTranslation([-0.4, 0.45, 0])), mat4.fromRotation(time/1000, [0,1,0])),
-        u_normalMatrix: (time) => mat3.fromMat4(mat4.transpose(mat4.invert(mat4.multiply(mat4.multiply(mat4.identity(), mat4.fromTranslation([-0.4, 0.45, 0])), mat4.fromRotation(time/1000, [0,1,0])))))
+        u_modelMatrix: (time) => mat4.multiply(mat4.multiply(mat4.multiply(mat4.identity(), mat4.fromTranslation([-0.4, 0.45, 0])), mat4.fromRotation(time/1000, [0,1,0])), mat4.fromScaling([0.1, 0.1, 0.1])),
+        u_normalMatrix: (time) => mat3.fromMat4(mat4.transpose(mat4.invert(mat4.multiply(mat4.multiply(mat4.multiply(mat4.identity(), mat4.fromTranslation([-0.4, 0.45, 0])), mat4.fromRotation(time/1000, [0,1,0])), mat4.fromScaling([0.1, 0.1, 0.1])))))
     },
     [
         // texture bindings
@@ -451,8 +455,8 @@ const worldGearCubeRightDrawCall = glance.createDrawCall(
     worldGearVAO,
     {
         // uniform update callbacks
-        u_modelMatrix: (time) => mat4.multiply(mat4.multiply(mat4.identity(), mat4.fromTranslation([0.4, 0.45, 0])), mat4.fromRotation(time/1000, [0,1,0])),
-        u_normalMatrix: (time) => mat3.fromMat4(mat4.transpose(mat4.invert(mat4.multiply(mat4.multiply(mat4.identity(), mat4.fromTranslation([0.4, 0.45, 0])), mat4.fromRotation(time/1000, [0,1,0])))))
+        u_modelMatrix: (time) => mat4.multiply(mat4.multiply(mat4.multiply(mat4.identity(), mat4.fromTranslation([0.4, 0.45, 0])), mat4.fromRotation(time/1000, [0,1,0])), mat4.fromScaling([0.1, 0.1, 0.1])),
+        u_normalMatrix: (time) => mat3.fromMat4(mat4.transpose(mat4.invert(mat4.multiply(mat4.multiply(mat4.multiply(mat4.identity(), mat4.fromTranslation([0.4, 0.45, 0])), mat4.fromRotation(time/1000, [0,1,0])), mat4.fromScaling([0.1, 0.1, 0.1])))))
     },
     [
         // texture bindings
@@ -461,6 +465,10 @@ const worldGearCubeRightDrawCall = glance.createDrawCall(
         [2, worldGearTextureSpecular],
     ]
 )
+
+///////////////////////////////////////////////////////////
+
+
 
 
 const skyDrawCall = glance.createDrawCall(

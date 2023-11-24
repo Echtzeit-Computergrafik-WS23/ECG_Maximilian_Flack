@@ -7,7 +7,7 @@
 export
 {
     createCubeIndices, createCubeAttributes, createCylinderAttributes, createCylinderIndices,
-    createSkyBoxAttributes, createSkyBoxIndices, createSphereAttributes, createSphereIndices, createTorusKnotAttributes, createTorusKnotIndices,
+    createSkyBoxAttributes, createSkyBoxIndices, createSphereAttributes, createSphereIndices,
     // createFullscreenQuad,
     loadObj,
 }
@@ -322,83 +322,7 @@ function createSphereIndices(latitudeBands, longitudeBands)
     }
     return buffer
 }
-// TODO: enable/disable attributes for torus knot
-function createTorusKnotAttributes(radius = 1, tube = 0.4, tubularSegments = 64, radialSegments = 8, p = 2, q = 3)
-{
-    // Ensure segments are integers.
-    tubularSegments = Math.floor(tubularSegments)
-    radialSegments = Math.floor(radialSegments)
-    // buffers
-    const buffer = []
-    // This function calculates the current position on the torus curve.
-    const calculatePositionOnCurve = (u, p, q, radius, position) =>
-    {
-        const cu = Math.cos(u)
-        const su = Math.sin(u)
-        const quOverP = q / p * u
-        const cs = Math.cos(quOverP)
-        position[0] = radius * (2 + cs) * 0.5 * cu
-        position[1] = radius * (2 + cs) * su * 0.5
-        position[2] = radius * Math.sin(quOverP) * 0.5
-    }
-    // helper variables
-    const vertex = vec3.zero()
-    const P1 = vec3.zero()
-    let B = vec3.zero()
-    let T = vec3.zero()
-    let N = vec3.zero()
-    // generate vertices, normals and uvs
-    for (let i = 0; i <= tubularSegments; ++i) {
-        // the radian "u" is used to calculate the position on the torus curve of the current tubular segment
-        const u = i / tubularSegments * p * Math.PI * 2
-        // now we calculate two points. P1 is our current position on the curve, P2 is a little farther ahead.
-        // these points are used to create a special "coordinate space", which is necessary to calculate the correct vertex positions
-        calculatePositionOnCurve(u, p, q, radius, P1)
-        calculatePositionOnCurve(u + 0.01, p, q, radius, N)
-        // calculate orthonormal basis
-        vec3.subtract(vec3.copy(T, N), P1)
-        vec3.cross(vec3.copy(B, T), N)
-        vec3.cross(vec3.copy(N, B), T)
-        // normalize B and N. T can be ignored, we don't use it
-        vec3.normalize(B)
-        vec3.normalize(N)
-        for (let j = 0; j <= radialSegments; ++j) {
-            // now calculate the vertices. they are nothing more than an extrusion of the torus curve.
-            // because we extrude a shape in the xy-plane, there is no need to calculate a z-value.
-            const v = j / radialSegments * Math.PI * 2
-            const cx = -tube * Math.cos(v)
-            const cy = tube * Math.sin(v)
-            // now calculate the final vertex position.
-            // first we orient the extrusion with our basis vectors, then we add it to the current position on the curve
-            vertex[0] = P1[0] + (cx * N[0] + cy * B[0])
-            vertex[1] = P1[1] + (cx * N[1] + cy * B[1])
-            vertex[2] = P1[2] + (cx * N[2] + cy * B[2])
-            buffer.push(vertex[0], vertex[1], vertex[2])
-            // normal (P1 is always the center/origin of the extrusion, thus we can use it to calculate the normal)
-            vec3.subtract(vertex, P1)
-            vec3.normalize(vertex)
-            buffer.push(vertex[0], vertex[1], vertex[2])
-            // uv
-            buffer.push(i / tubularSegments)
-            buffer.push(j / radialSegments)
-        }
-    }
-    return buffer
-}
-function createTorusKnotIndices(tubularSegments = 64, radialSegments = 8)
-{
-    const indices = []
-    for (let tubeIdx = 1; tubeIdx <= tubularSegments; tubeIdx++) {
-        for (let radIdx = 1; radIdx <= radialSegments; radIdx++) {
-            const a = (radialSegments + 1) * (tubeIdx - 1) + (radIdx - 1)
-            const b = (radialSegments + 1) * tubeIdx + (radIdx - 1)
-            const c = (radialSegments + 1) * tubeIdx + radIdx
-            const d = (radialSegments + 1) * (tubeIdx - 1) + radIdx
-            indices.push(a, b, d, b, c, d)
-        }
-    }
-    return indices
-}
+
 // /** Creates a fullscreen quad with the given options.
 //  * @param gl The WebGL context.
 //  * @param name The name of the fullscreen entity.
@@ -461,110 +385,128 @@ function createTorusKnotIndices(tubularSegments = 64, radialSegments = 8)
 //     // Create the fullscreen quad entity.
 //     return createEntity({ gl, name, vertexBuffers, indexBuffer, shaders, uniforms })
 // }
-// /** Loads an obj file and returns an entity. */
-async function loadObj(
-    { gl, path, shaders,
-        uniforms = {},
-        name = undefined,
-        positionAttribute = "aPosition",
-        normalAttribute = undefined,
-        texCoordAttribute = undefined,
-    })
-{
-    // Load the OBJ file
-    const obj = await parseObj(path)
-    let positions = []
-    let indices = []
-    let normals = []
-    let texCoords = []
-    { // Expand the compressed OBJ geometry
-        let index = 0
-        const knownIndices = new Map()
-        for (const multiIndex of obj.multiIndices) {
-            const key = multiIndex.join(",")
-            if (key in knownIndices) {
-                // Re-use existing vertices
-                indices.push(knownIndices.get(key))
-            }
-            else {
-                // Create a new vertex
-                const positionIndex = multiIndex[0] * 3
-                positions.push(...obj.positions.slice(positionIndex, positionIndex + 3))
-                const uvIndex = multiIndex[1] * 2
-                texCoords.push(...obj.texCoords.slice(uvIndex, uvIndex + 2))
-                const normalIndex = multiIndex[2] * 3
-                normals.push(...obj.normals.slice(normalIndex, normalIndex + 3))
-                indices.push(index)
-                knownIndices.set(key, index)
-                index++
-            }
-        }
-    }
-    // Define the name
-    if (!name) {
-        name = obj.name
-    }
-    logInfo(() => `Loaded OBJ '${name}' with ${positions.length / 3} vertices.`)
-    // Create the interleaved vertex array.
-    const interleaved = [positions]
-    const quantities = [3]
-    let stride = 3
-    let normalOffset = 3
-    let texCoordOffset = 3
-    if (normalAttribute) {
-        interleaved.push(normals)
-        quantities.push(3)
-        stride += 3
-        texCoordOffset += 3
-    }
-    if (texCoordAttribute) {
-        interleaved.push(texCoords)
-        quantities.push(2)
-        stride += 2
-    }
-    stride *= Float32Array.BYTES_PER_ELEMENT
-    normalOffset *= Float32Array.BYTES_PER_ELEMENT
-    texCoordOffset *= Float32Array.BYTES_PER_ELEMENT
-    const vertexArray = interleaveArrays(interleaved, quantities)
-    const data = new Float32Array(vertexArray)
-    // TODO: the block above and below appear a lot - factor them out?
-    // Create the vertex buffers.
-    const vertexBuffers = {}
-    vertexBuffers[positionAttribute] = createAttributeBuffer({
-        gl, data,
-        numComponents: 3,
-        stride,
-        offset: 0,
-    })
-    if (normalAttribute) {
-        vertexBuffers[normalAttribute] = createAttributeBuffer({
-            gl, data,
-            numComponents: 3,
-            stride,
-            offset: normalOffset,
-            glBuffer: vertexBuffers[positionAttribute].glBuffer,
-        })
-    }
-    if (texCoordAttribute) {
-        vertexBuffers[texCoordAttribute] = createAttributeBuffer({
-            gl, data,
-            numComponents: 2,
-            stride,
-            offset: texCoordOffset,
-            glBuffer: vertexBuffers[positionAttribute].glBuffer,
-        })
-    }
-    // Create the index buffer.
-    const indexBuffer = createIndexBuffer({ gl, indices })
-    // Create the entity
-    return createEntity({
-        gl,
-        name,
-        vertexBuffers,
-        indexBuffer,
-        shaders,
-        uniforms,
-    })
+
+/** 
+ * Load and parse an OBJ file into a raw `ObjData` object.
+ * For now, we only support OBJ files with a single object as exported by Blender,
+ * with 3-D positions, 2-D UV coordiantes, normals and triangulated faces.
+ * @param text The text contents of the OBJ file.
+ * @returns A promise that resolves to the parsed OBJ data.
+ */
+function parseObj(text) {
+   // Ignore comments, materials, groups, and smooth shading
+   const ignoredLines = new Set(["#", "mtllib", "g", "usemtl", "s", ""]);
+   // Parse the OBJ contents
+   let name = undefined;
+   const positions = [];
+   const splitIndices = [];
+   const normals = [];
+   const texCoords = [];
+   const lines = text.split("\n");
+   for (const [index, line] of lines.entries()) {
+       const tokens = line.split(" ");
+       const type = tokens[0];
+       if (ignoredLines.has(type)) {
+           continue;
+       }
+       else if (type === "o") {
+           if (name === undefined) {
+               name = tokens[1];
+           }
+           else {
+               throwError(() => `Multiple object names defined in OBJ file (on line ${index})`);
+           }
+       }
+       else if (type === "v") {
+           positions.push(parseFloat(tokens[1]), parseFloat(tokens[2]), parseFloat(tokens[3]));
+       }
+       else if (type === "vn") {
+           normals.push(parseFloat(tokens[1]), parseFloat(tokens[2]), parseFloat(tokens[3]));
+       }
+       else if (type === "vt") {
+           texCoords.push(parseFloat(tokens[1]), parseFloat(tokens[2]));
+       }
+       else if (type === "f") {
+           for (let i = 1; i <= 3; i++) {
+               const face = tokens[i].split("/");
+               splitIndices.push([
+                   parseInt(face[0]) - 1,
+                   parseInt(face[1]) - 1,
+                   parseInt(face[2]) - 1, // normal
+               ]);
+           }
+       }
+       else {
+           logWarning(() => `Unexpected OBJ token: '${type}' on line ${index}`);
+       }
+   }
+   if (name === undefined) {
+       throwError(() => "No object name defined in OBJ file");
+   }
+   return {
+       name,
+       positions,
+       texCoords,
+       normals,
+       splitIndices,
+   };
+}
+/**
+* Takes a raw OBJ data object and creates an attribute, and index buffer from it.
+* @param objData OBJ data to expand.
+* @returns [Attributes, Indices]
+*/
+function expandObj(objData) {
+   let positions = [];
+   let texCoords = [];
+   let normals = [];
+   let indices = [];
+   // Expand the raw OBJ data into arrays of vertex attributes and indices.
+   let vertIdx = 0;
+   const knownIndices = new Map();
+   for (const splitIndex of objData.splitIndices) {
+       const vertexKey = splitIndex.join("|");
+       // Detect duplicate vertices
+       const existingVertex = knownIndices.get(vertexKey);
+       if (existingVertex !== undefined) {
+           indices.push(existingVertex);
+           continue;
+       }
+       const [posIdx, uvIdx, normIdx] = splitIndex;
+       // Create a new vertex
+       const positionIndex = posIdx * 3;
+       positions.push(...objData.positions.slice(positionIndex, positionIndex + 3));
+       const uvIndex = uvIdx * 2;
+       texCoords.push(...objData.texCoords.slice(uvIndex, uvIndex + 2));
+       const normalIndex = normIdx * 3;
+       normals.push(...objData.normals.slice(normalIndex, normalIndex + 3));
+       indices.push(vertIdx);
+       knownIndices.set(vertexKey, vertIdx);
+       vertIdx++;
+   }
+   // Interleave the vertex attributes.
+   const attributes = interleaveArrays([positions, texCoords, normals], [3, 2, 3]);
+   return [attributes, indices];
+}
+/**
+* Load an OBJ file and return the vertex attributes and indices.
+* The attributes are interleaved as [position(3), texcoord(2), normal(3)].
+* @param path Location of the OBJ file.
+* @returns [Attributes, Indices]
+*/
+async function loadObj(path) {
+   // Load the OBJ file
+   const response = await fetch(path);
+   const text = await response.text();
+   // Parse the OBJ file
+   const objData = parseObj(text);
+   // Expand the OBJ data
+   const [attributes, indices] = expandObj(objData);
+   return {
+       name: objData.name,
+       attributes,
+       indices,
+   };
 }
 // // =============================================================================
 // // Private Types
@@ -649,86 +591,4 @@ function interleaveArrays(arrays, quantities = 1)
         }
     }
     return interleaved
-}
-// /** Load and parse an OBJ file into a `CompressedObjGeometry` format.
-//  * @param path The path to the OBJ file.
-//  * @returns A promise that resolves to the parsed OBJ data.
-//  */
-async function parseObj(path)
-{
-    // Load the OBJ file
-    const response = await fetch(path)
-    const text = await response.text()
-    // Ignore comments, materials, groups, and smooth shading
-    const ignoredLines= new Set(["#", "mtllib", "g", "usemtl", "s", ""])
-    // Parse the OBJ contents
-    let name = undefined
-    const positions= []
-    const multiIndices = []
-    const normals = []
-    const uvs = []
-    const lines = text.split("\n")
-    for (const [index, line] of lines.entries()) {
-        const tokens = line.split(" ")
-        const type = tokens[0]
-        if (ignoredLines.has(type)) {
-            continue
-        }
-        else if (type === "o") {
-            if (name === undefined) {
-                name = tokens[1]
-            }
-            else {
-                throwError(() => `Multiple object names defined in OBJ file (on line ${index})`)
-            }
-        }
-        else if (type === "v") {
-            positions.push(
-                parseFloat(tokens[1]),
-                parseFloat(tokens[2]),
-                parseFloat(tokens[3]),
-            )
-        }
-        else if (type === "vn") {
-            normals.push(
-                parseFloat(tokens[1]),
-                parseFloat(tokens[2]),
-                parseFloat(tokens[3]),
-            )
-        }
-        else if (type === "vt") {
-            uvs.push(
-                parseFloat(tokens[1]),
-                parseFloat(tokens[2]),
-            )
-        }
-        else if (type === "f") {
-            // Face indices contain the vertex ID, UV ID, and normal ID
-            for (let i = 1; i <= 3; i++) {
-                const face = tokens[i].split("/")
-                multiIndices.push([
-                    parseInt(face[0]) - 1,
-                    parseInt(face[1]) - 1,
-                    parseInt(face[2]) - 1,
-                ])
-            }
-        }
-        else if (type === "s") {
-            // Ignore smooth shading
-            continue
-        }
-        else {
-            logWarning(() => `Unexpected OBJ token: '${type}' on line ${index}`)
-        }
-    }
-    if (name === undefined) {
-        throwError(() => "No object name defined in OBJ file")
-    }
-    return {
-        name,
-        positions,
-        multiIndices,
-        normals,
-        texCoords: uvs,
-    }
 }
