@@ -266,7 +266,7 @@ const worldCubeAxleVAO = glance.createVAO(
 
 
 // The world - Gear
-const {attributes: gearAttr, indices: gearIdx} = await glance.loadObj("./obj/untitled.obj")
+const {attributes: gearAttr, indices: gearIdx} = await glance.loadObj("./obj/gear.obj")
 
 const worldGearIBO = glance.createIndexBuffer(gl, gearIdx)
 
@@ -285,6 +285,10 @@ const worldGearVAO = glance.createVAO(
 const worldGearTextureAmbient = glance.loadTexture(gl, "img/rust_coarse_ambient.jpg")
 const worldGearTextureDiffuse = glance.loadTexture(gl, "img/rust_coarse_diff.jpg")
 const worldGearTextureSpecular = glance.loadTexture(gl, "img/rust_coarse_diff.jpg")
+const worldGearTextureDiffuseGreen = glance.loadTexture(gl, "img/rust_coarse_diff_green.jpg")
+const worldGearTextureSpecularGreen = glance.loadTexture(gl, "img/rust_coarse_diff_green.jpg")
+const worldGearTextureDiffuseRed = glance.loadTexture(gl, "img/rust_coarse_diff_red.jpg")
+const worldGearTextureSpecularRed = glance.loadTexture(gl, "img/rust_coarse_diff_red.jpg")
 
 
 
@@ -320,9 +324,13 @@ const [skyCubemap, skyCubeMapLoaded] = glance.loadCubemap(gl, "sky-texture", [
 // Scene State
 let viewDist = 4.5
 let viewPan = 0
-let pickUpGear = false
-let gearPlaceRight = false
-let gearPlaceLeft = false
+let pickUpGearOne = false
+let gearOnePlaceRight = false
+let gearOnePlaceLeft = false
+let pickUpGearTwo = false
+let gearTwoPlaceRight = false
+let gearTwoPlaceLeft = false
+let solvedGame = false
 
 const worldDrawCall = glance.createDrawCall(
     gl,
@@ -394,11 +402,62 @@ const worldCubeAxleLeftDrawCall = glance.createDrawCall(
     ]
 )
 
+const worldCubeAxleRightWallDrawCall = glance.createDrawCall(
+    gl,
+    worldShader,
+    worldCubeAxleVAO,
+    {
+        // uniform update callbacks
+        u_modelMatrix: () => mat4.multiply(mat4.multiply(mat4.multiply(mat4.identity(), mat4.fromTranslation([0.6, 0, 0.2])), mat4.fromRotation(Math.PI/2, [1, 0, 0])), mat4.fromRotation(-Math.PI/4, [0, 0, 1])),
+        u_normalMatrix: () => mat3.fromMat4(mat4.transpose(mat4.invert(mat4.multiply(mat4.multiply(mat4.multiply(mat4.identity(), mat4.fromTranslation([0.6, 0, 0.2])), mat4.fromRotation(Math.PI/2, [1, 0, 0])), mat4.fromRotation(-Math.PI/4, [0, 0, 1])))))
+    },
+    [
+        // texture bindings
+        [0, worldCubeTextureAmbient],
+        [1, worldCubeTextureDiffuse],
+        [2, worldCubeTextureSpecular],
+    ]
+)
+
+const worldCubeAxleLeftWallDrawCall = glance.createDrawCall(
+    gl,
+    worldShader,
+    worldCubeAxleVAO,
+    {
+        // uniform update callbacks
+        u_modelMatrix: () => mat4.multiply(mat4.multiply(mat4.multiply(mat4.identity(), mat4.fromTranslation([-0.6, 0, 0.2])), mat4.fromRotation(Math.PI/2, [1, 0, 0])), mat4.fromRotation(Math.PI/4, [0, 0, 1])),
+        u_normalMatrix: () => mat3.fromMat4(mat4.transpose(mat4.invert(mat4.multiply(mat4.multiply(mat4.multiply(mat4.identity(), mat4.fromTranslation([-0.6, 0, 0.2])), mat4.fromRotation(Math.PI/2, [1, 0, 0])), mat4.fromRotation(Math.PI/4, [0, 0, 1])))))
+    },
+    [
+        // texture bindings
+        [0, worldCubeTextureAmbient],
+        [1, worldCubeTextureDiffuse],
+        [2, worldCubeTextureSpecular],
+    ]
+)
+
 
 
 //////////////////////// Gear Draw Calls ///////////////////////////////////
 
-const worldGearTableDrawCall = glance.createDrawCall(
+const worldGearOneTableDrawCall = glance.createDrawCall(
+    gl,
+    worldShader,
+    worldGearVAO,
+    {
+        // uniform update callbacks
+        u_modelMatrix: () => mat4.multiply(mat4.multiply(mat4.multiply(mat4.identity(), mat4.fromTranslation([0.95, -0.5, 0.75])), mat4.fromRotation(-Math.PI/16, [1, 0, 0])), mat4.fromScaling([0.1, 0.1, 0.1])),
+        u_normalMatrix: () => mat3.fromMat4(mat4.transpose(mat4.invert(mat4.multiply(mat4.multiply(mat4.multiply(mat4.identity(), mat4.fromTranslation([0.95, -0.5, 0.75])), mat4.fromRotation(-Math.PI/16, [1, 0, 0])), mat4.fromScaling([0.1, 0.1, 0.1])))))
+    },
+    [
+        // texture bindings
+        [0, worldGearTextureAmbient],
+        [1, worldGearTextureDiffuse],
+        [2, worldGearTextureSpecular],
+    ]
+)
+
+const worldGearTwoTableDrawCall = glance.createDrawCall(
     gl,
     worldShader,
     worldGearVAO,
@@ -438,7 +497,7 @@ const worldGearCubeLeftDrawCall = glance.createDrawCall(
     worldGearVAO,
     {
         // uniform update callbacks
-        u_modelMatrix: (time) => mat4.multiply(mat4.multiply(mat4.multiply(mat4.identity(), mat4.fromTranslation([-0.4, 0.45, 0])), mat4.fromRotation(time/1000, [0,1,0])), mat4.fromScaling([0.1, 0.1, 0.1])),
+        u_modelMatrix: (time) => mat4.multiply(mat4.multiply(mat4.multiply(mat4.identity(), mat4.fromTranslation([-0.4, 0.45, 0])), mat4.fromRotation(-time/1000, [0,1,0])), mat4.fromScaling([0.1, 0.1, 0.1])),
         u_normalMatrix: (time) => mat3.fromMat4(mat4.transpose(mat4.invert(mat4.multiply(mat4.multiply(mat4.multiply(mat4.identity(), mat4.fromTranslation([-0.4, 0.45, 0])), mat4.fromRotation(time/1000, [0,1,0])), mat4.fromScaling([0.1, 0.1, 0.1])))))
     },
     [
@@ -463,6 +522,80 @@ const worldGearCubeRightDrawCall = glance.createDrawCall(
         [0, worldGearTextureAmbient],
         [1, worldGearTextureDiffuse],
         [2, worldGearTextureSpecular],
+    ]
+)
+
+const worldGearCubeRightFirstDrawCall = glance.createDrawCall(
+    gl,
+    worldShader,
+    worldGearVAO,
+    {
+        // uniform update callbacks
+        u_modelMatrix: () => mat4.multiply(mat4.multiply(mat4.identity(), mat4.fromTranslation([0.4, 0.45, 0])), mat4.fromScaling([0.1, 0.1, 0.1])),
+        u_normalMatrix: () => mat3.fromMat4(mat4.transpose(mat4.invert(mat4.multiply(mat4.multiply(mat4.identity(), mat4.fromTranslation([0.4, 0.45, 0])), mat4.fromScaling([0.1, 0.1, 0.1])))))
+    },
+    [
+        // texture bindings
+        [0, worldGearTextureAmbient],
+        [1, worldGearTextureDiffuse],
+        [2, worldGearTextureSpecular],
+    ]
+)
+
+// Start and End Gear///////////
+
+const worldGearCubeStartDrawCall = glance.createDrawCall(
+    gl,
+    worldShader,
+    worldGearVAO,
+    {
+        // uniform update callbacks
+        u_modelMatrix: (time) => mat4.multiply(mat4.multiply(mat4.multiply(mat4.multiply(mat4.multiply(
+            mat4.identity(), mat4.fromTranslation([-0.65, 0, 0.25])), mat4.fromRotation(Math.PI/2, [1,0,0])), mat4.fromRotation(Math.PI/4, [0,0,1])), mat4.fromRotation(time/1000, [0,1,0])), mat4.fromScaling([0.15, 0.1, 0.15])),
+        u_normalMatrix: (time) => mat3.fromMat4(mat4.transpose(mat4.invert(mat4.multiply(mat4.multiply(mat4.multiply(mat4.multiply(mat4.multiply(
+            mat4.identity(), mat4.fromTranslation([-0.65, 0, 0.25])), mat4.fromRotation(Math.PI/2, [1,0,0])), mat4.fromRotation(Math.PI/4, [0,0,1])), mat4.fromRotation(time/1000, [0,1,0])), mat4.fromScaling([0.15, 0.1, 0.15])))))
+    },
+    [
+        // texture bindings
+        [0, worldGearTextureAmbient],
+        [1, worldGearTextureDiffuseGreen],
+        [2, worldGearTextureSpecularGreen],
+    ]
+)
+
+const worldGearCubeEndWrongDrawCall = glance.createDrawCall(
+    gl,
+    worldShader,
+    worldGearVAO,
+    {
+        // uniform update callbacks
+        u_modelMatrix: () => mat4.multiply(mat4.multiply(mat4.multiply(mat4.multiply(mat4.identity(), mat4.fromTranslation([0.65, 0, 0.25])), mat4.fromRotation(Math.PI/2, [1,0,0])), mat4.fromRotation(-Math.PI/4, [0,0,1])), mat4.fromScaling([0.15, 0.1, 0.15])),
+        u_normalMatrix: () => mat3.fromMat4(mat4.transpose(mat4.invert(mat4.multiply(mat4.multiply(mat4.multiply(mat4.multiply(mat4.identity(), mat4.fromTranslation([0.65, 0, 0.25])), mat4.fromRotation(Math.PI/2, [1,0,0])), mat4.fromRotation(-Math.PI/4, [0,0,1])), mat4.fromScaling([0.15, 0.1, 0.15])))))
+    },
+    [
+        // texture bindings
+        [0, worldGearTextureAmbient],
+        [1, worldGearTextureDiffuseRed],
+        [2, worldGearTextureSpecularRed],
+    ]
+)
+
+const worldGearCubeEndCorrectDrawCall = glance.createDrawCall(
+    gl,
+    worldShader,
+    worldGearVAO,
+    {
+        // uniform update callbacks
+        u_modelMatrix: (time) => mat4.multiply(mat4.multiply(mat4.multiply(mat4.multiply(mat4.multiply(
+            mat4.identity(), mat4.fromTranslation([0.65, 0, 0.25])), mat4.fromRotation(Math.PI/2, [1,0,0])), mat4.fromRotation(-Math.PI/4, [0,0,1])), mat4.fromRotation(-time/1000, [0,1,0])), mat4.fromScaling([0.15, 0.1, 0.15])),
+        u_normalMatrix: (time) => mat3.fromMat4(mat4.transpose(mat4.invert(mat4.multiply(mat4.multiply(mat4.multiply(mat4.multiply(mat4.multiply(
+            mat4.identity(), mat4.fromTranslation([0.65, 0, 0.25])), mat4.fromRotation(Math.PI/2, [1,0,0])), mat4.fromRotation(-Math.PI/4, [0,0,1])), mat4.fromRotation(-time/1000, [0,1,0])), mat4.fromScaling([0.15, 0.1, 0.15])))))
+    },
+    [
+        // texture bindings
+        [0, worldGearTextureAmbient],
+        [1, worldGearTextureDiffuseGreen],
+        [2, worldGearTextureSpecularGreen],
     ]
 )
 
@@ -503,26 +636,56 @@ setRenderLoop((time) =>
     glance.performDrawCall(gl, worldCubeDrawCall, time)
     glance.performDrawCall(gl, worldCubeAxleLeftDrawCall, time)
     glance.performDrawCall(gl, worldCubeAxleRightDrawCall, time)
-    if (pickUpGear) {
+    glance.performDrawCall(gl, worldCubeAxleLeftWallDrawCall, time)
+    glance.performDrawCall(gl, worldCubeAxleRightWallDrawCall, time)
+    glance.performDrawCall(gl, worldGearCubeStartDrawCall, time)
+    if (pickUpGearOne) {
         glance.performDrawCall(gl, worldGearMouseDrawCall, time)
     }
     else {
-        if (gearPlaceRight) {
-            glance.performDrawCall(gl, worldGearCubeRightDrawCall, time)
+        if (gearOnePlaceRight) {
+            if (gearTwoPlaceLeft) {
+                glance.performDrawCall(gl, worldGearCubeRightDrawCall, time)
+            }
+            else {
+                glance.performDrawCall(gl, worldGearCubeRightFirstDrawCall, time)
+            }
         }
-        else if (gearPlaceLeft) {
+        else if (gearOnePlaceLeft) {
             glance.performDrawCall(gl, worldGearCubeLeftDrawCall, time)
         }
         else {
-            glance.performDrawCall(gl, worldGearTableDrawCall, time)
+            glance.performDrawCall(gl, worldGearOneTableDrawCall, time)
         }
+    }
+
+    if (pickUpGearTwo) {
+        glance.performDrawCall(gl, worldGearMouseDrawCall, time)
+    }
+    else {
+        if (gearTwoPlaceRight) {
+            glance.performDrawCall(gl, worldGearCubeRightDrawCall, time)
+        }
+        else if (gearTwoPlaceLeft) {
+            glance.performDrawCall(gl, worldGearCubeLeftDrawCall, time)
+        }
+        else {
+            glance.performDrawCall(gl, worldGearTwoTableDrawCall, time)
+        }
+    }
+
+    if (solvedGame) {
+        glance.performDrawCall(gl, worldGearCubeEndCorrectDrawCall, time)
+    }
+    else {
+        glance.performDrawCall(gl, worldGearCubeEndWrongDrawCall, time)
     }
     glance.performDrawCall(gl, skyDrawCall, time)
 })
 
 onMouseDrag((e) =>
 {
-    viewPan += e.movementX * -.01
+    viewPan = Math.max(-Math.PI/3, Math.min(Math.PI/3, viewPan + e.movementX * -.01))
 })
 
 onMouseWheel((e) =>
@@ -532,22 +695,49 @@ onMouseWheel((e) =>
 
 onClickKey((e) =>
 {
-    if (e.key === "1" && !gearPlaceLeft && !gearPlaceRight) {
-        pickUpGear = !pickUpGear
+    if (e.key === "1") {
+        if (gearOnePlaceRight || gearOnePlaceLeft)
+        {
+            if (!gearTwoPlaceLeft && !gearTwoPlaceRight) {
+                pickUpGearTwo = !pickUpGearTwo
+            }
+        }
+        else {
+            pickUpGearOne = !pickUpGearOne
+        }
     }
-    if (e.key === "Enter" && pickUpGear) {
-        if (cursor[0] >= 0) {
-            pickUpGear = false
-            gearPlaceRight = true
-        } 
-        else if (cursor[0] < 0) {
-            pickUpGear = false
-            gearPlaceLeft = true
+    if (e.key === "Enter") {
+        if (pickUpGearOne)
+        {
+            if (cursor[0] >= 0) {
+                pickUpGearOne = false
+                gearOnePlaceRight = true
+            } 
+            else if (cursor[0] < 0) {
+                pickUpGearOne = false
+                gearOnePlaceLeft = true
+            }
+        }
+        else if (pickUpGearTwo) {
+            if (cursor[0] >= 0 && !gearOnePlaceRight) {
+                pickUpGearTwo = false
+                gearTwoPlaceRight = true
+                solvedGame = true
+            } 
+            else if (cursor[0] < 0 && !gearOnePlaceLeft) {
+                pickUpGearTwo = false
+                gearTwoPlaceLeft = true
+                solvedGame = true
+            }
         }
     }
     if (e.key === "0") {
-        pickUpGear = false
-        gearPlaceRight = false
-        gearPlaceLeft = false
+        pickUpGearOne = false
+        gearOnePlaceRight = false
+        gearOnePlaceLeft = false
+        pickUpGearTwo = false
+        gearTwoPlaceRight = false
+        gearTwoPlaceLeft = false
+        solvedGame = false
     }
 })

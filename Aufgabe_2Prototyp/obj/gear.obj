@@ -1,6 +1,6 @@
 # Blender 3.1.0
 # www.blender.org
-mtllib untitled.mtl
+mtllib gear.mtl
 o Cylinder
 v 0.000000 -0.315452 -2.940100
 v 0.000000 0.408874 -2.940100
